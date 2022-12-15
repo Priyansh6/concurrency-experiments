@@ -11,6 +11,8 @@
   void flip_picture(struct picture *pic, char plane);
   void blur_picture(struct picture *pic);
   void parallel_blur_picture(struct picture *pic);
+  void parallel_row_blur_picture(struct picture *pic);
+  void parallel_column_blur_picture(struct picture *pic);
 
 #endif
 

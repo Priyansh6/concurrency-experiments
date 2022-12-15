@@ -14,6 +14,6 @@ typedef struct thread_pool {
 void thread_pool_init(thread_pool_t *tpool, u_int32_t max_threads, u_int32_t capacity);
 bool thread_pool_submit_job(thread_pool_t *tpool, void *(* job)(void *), void *args);
 void thread_pool_run_and_wait(thread_pool_t *tpool);
-
+void thread_pool_destroy(thread_pool_t *tpool);
 
 #endif

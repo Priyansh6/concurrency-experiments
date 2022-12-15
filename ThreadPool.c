@@ -17,7 +17,7 @@ void thread_pool_init(thread_pool_t *tpool, u_int32_t max_threads, u_int32_t cap
   tpool->max_threads = max_threads;
   tpool->capacity = capacity;
   tpool->q_size = 0;
-  tpool->job_q = malloc(capacity * sizeof(tpool->job_q));
+  tpool->job_q = malloc(capacity * sizeof(thread_pool_job_t));
   pthread_mutex_init(&tpool->q_lock, NULL);
 }
 
@@ -38,17 +38,19 @@ void thread_pool_run_and_wait(thread_pool_t *tpool) {
   pthread_t *threads = malloc(tpool->max_threads * sizeof(pthread_t));
 
   // Creates and stores number of threads that the thread pool supports.
-  for (int i = 0; i < tpool->max_threads; i++) {
-    pthread_t thread;
-    pthread_create(&thread, NULL, &thread_pool_thread_init, tpool);
-    threads[i] = thread;
-  }
-  
+  for (int i = 0; i < tpool->max_threads; i++)
+    pthread_create(&threads[i], NULL, &thread_pool_thread_init, tpool);
+    
   // Waits for all the threads to finish.
   for (int i = 0; i < tpool->max_threads; i++)
     pthread_join(threads[i], NULL);
-  
+   
   free(threads);
+}
+
+/* Frees resources used by a thread pool. */
+void thread_pool_destroy(thread_pool_t *tpool) {
+  free(tpool->job_q);
 }
 
 /* Wrapper around jobs for thread pool threads. 
@@ -96,6 +98,6 @@ static thread_pool_job_t *thread_pool_pop_job(thread_pool_t *tpool) {
   tpool->q_size--;
   thread_pool_job_t *job = tpool->job_q + tpool->q_size;
 
-  pthread_mutex_lock(&tpool->q_lock);
+  pthread_mutex_unlock(&tpool->q_lock);
   return job;
 }
