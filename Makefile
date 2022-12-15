@@ -14,6 +14,8 @@ picture_compare: Compare.o Utils.o Picture.o
 
 Utils.o: Utils.h Utils.c
 
+ThreadPool.o: ThreadPool.h ThreadPool.c
+
 Picture.o: Utils.h Picture.h Picture.c
 
 PicProcess.o: Utils.h Picture.h PicProcess.h PicProcess.c
