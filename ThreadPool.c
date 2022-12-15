@@ -8,9 +8,9 @@ typedef struct thread_pool_job {
   void *args;
 } thread_pool_job_t;
 
+static void *thread_pool_thread_init(void *vtpool);
 static bool thread_pool_push_job(thread_pool_t *tpool, thread_pool_job_t job);
 static thread_pool_job_t *thread_pool_pop_job(thread_pool_t *tpool);
-static void *thread_pool_thread_init(void *vtpool);
 
 /* Initialises a thread pool with the provided max_threads and job capacity. */
 void thread_pool_init(thread_pool_t *tpool, u_int32_t max_threads, u_int32_t capacity) {
