@@ -1,0 +1,10 @@
+blur_opt_exprmt
+concurrent_picture_lib
+picture_compare
+picture_lib
+
+#ignore junk files from compiling C code
+*.o
+
+#ignore vscode configuration folder
+.vscode/
