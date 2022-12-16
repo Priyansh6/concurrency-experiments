@@ -352,8 +352,8 @@
     return NULL;
   }
 
-  /* Uses a thread pool to parallelise blurring half of the picture per thread. */
-  void parallel_half_sector_blur_picture(struct picture *pic){
+  /* Uses a thread pool to parallelise blurring each vertical half of the picture per thread. */
+  void parallel_v_half_sector_blur_picture(struct picture *pic){
     // make temporary copy of picture to work from
     struct picture tmp;
     tmp.img = copy_image(pic->img);
@@ -372,6 +372,34 @@
     struct blur_sector_args *right_args = malloc(sizeof(struct blur_sector_args));
     blur_sector_args_init(right_args, pic, &tmp, (tmp.width - 1) / 2, tmp.width - 1, 1, tmp.height - 1);
     thread_pool_submit_job(&tpool, &thread_blur_sector, right_args);
+
+    thread_pool_run_and_wait(&tpool);
+    thread_pool_destroy(&tpool);
+
+    // temporary picture clean-up
+    clear_picture(&tmp);
+  }
+
+  /* Uses a thread pool to parallelise blurring each horizontal half of the picture per thread. */
+  void parallel_h_half_sector_blur_picture(struct picture *pic){
+    // make temporary copy of picture to work from
+    struct picture tmp;
+    tmp.img = copy_image(pic->img);
+    tmp.width = pic->width;
+    tmp.height = pic->height; 
+
+    thread_pool_t tpool;
+    thread_pool_init(&tpool, THREAD_POOL_DEFAULT_THREADS, pic->width - 2);
+
+    /* Prepare and submit job for top side of the image. */
+    struct blur_sector_args *top_args = malloc(sizeof(struct blur_sector_args));
+    blur_sector_args_init(top_args, pic, &tmp, 1, tmp.width - 1, 1, (tmp.height - 1) / 2);
+    thread_pool_submit_job(&tpool, &thread_blur_sector, top_args);
+
+    /* Prepare and submit job for bottom side of the image. */
+    struct blur_sector_args *bottom_args = malloc(sizeof(struct blur_sector_args));
+    blur_sector_args_init(bottom_args, pic, &tmp, 1, tmp.width - 1, (tmp.height - 1) / 2, tmp.height - 1);
+    thread_pool_submit_job(&tpool, &thread_blur_sector, bottom_args);
 
     thread_pool_run_and_wait(&tpool);
     thread_pool_destroy(&tpool);

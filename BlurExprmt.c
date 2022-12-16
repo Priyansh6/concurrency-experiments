@@ -6,11 +6,13 @@
 #include "Picture.h"
 #include "PicProcess.h"
 
-#define BILLION 1000000000 
+#define NUM_TEST_RUNS 200
+#define BILLION 1000000000
+#define PRINT_TIME(label, time) printf("%s Time Taken: %lu.%09lus\n", label, time / BILLION, time % BILLION)
 
 typedef void blur_func(struct picture *pic);
 
-static bool test_blur_func(blur_func func, char *pic_path, char *save_path, char *label);
+static bool test_blur_func(blur_func func, char *pic_path, char *save_path, char *label, bool save);
 
 // ---------- MAIN PROGRAM ---------- \\
 
@@ -32,38 +34,77 @@ static bool test_blur_func(blur_func func, char *pic_path, char *save_path, char
     strncat(save_path, prefix, strlen(prefix));
     strncat(save_path, file_name, strlen(file_name));
     
-    test_blur_func(&blur_picture, pic_path, save_path, "Sequential");
-    test_blur_func(&parallel_blur_picture, pic_path, save_path, "Pixel by pixel");
-    test_blur_func(&parallel_row_blur_picture, pic_path, save_path, "Row by row");
-    test_blur_func(&parallel_column_blur_picture, pic_path, save_path, "Column by column");
-    test_blur_func(&parallel_half_sector_blur_picture, pic_path, save_path, "Half segments");
-    test_blur_func(&parallel_quarter_sector_blur_picture, pic_path, save_path, "Quarter segments");
+    test_blur_func(&blur_picture, pic_path, save_path, "Sequential", false);
+    test_blur_func(&parallel_blur_picture, pic_path, save_path, "Pixel by pixel", false);
+    test_blur_func(&parallel_row_blur_picture, pic_path, save_path, "Row by row", false);
+    test_blur_func(&parallel_column_blur_picture, pic_path, save_path, "Column by column", false);
+    test_blur_func(&parallel_v_half_sector_blur_picture, pic_path, save_path, "Vertical half segments", false);
+    test_blur_func(&parallel_h_half_sector_blur_picture, pic_path, save_path, "Horizontal half segments", false);
+    test_blur_func(&parallel_quarter_sector_blur_picture, pic_path, save_path, "Quarter segments", false);
     
     return EXIT_SUCCESS;
   }
 
   /* Creates and tests the picture at the provided pic_path with the provided blur function
-     called label. Returns whether loading and saving the picture is successful. */
-  static bool test_blur_func(blur_func func, char *pic_path, char *save_path, char *label) {
+     called label. The save boolean determines whether you want the picture to be saved.
+     Returns whether loading and saving the picture is successful. */
+  static bool test_blur_func(blur_func func, char *pic_path, char *save_path, char *label, bool save) {
     struct picture pic;
 
+    /* Load image from path */
     if (!init_picture_from_file(&pic, pic_path)) {
       return false;
-    }
+    } 
 
     struct timespec start;
     struct timespec end;
-    clock_gettime (CLOCK_MONOTONIC, &start);
 
-    func(&pic);
+    u_int64_t avg_time_ns = 0;
+    u_int64_t min_time_ns = 0;
+    u_int64_t max_time_ns = 0;
+    u_int64_t first_time_ns = 0;
 
-    clock_gettime (CLOCK_MONOTONIC, &end);
-    u_int64_t diff = BILLION * (end.tv_sec - start.tv_sec) + end.tv_nsec - start.tv_nsec; 
+    for (int i = 0; i < NUM_TEST_RUNS; i++) {
+      struct picture tmp_pic;
+      tmp_pic.img = copy_image(pic.img);
+      tmp_pic.width = pic.width;
+      tmp_pic.height = pic.height;
+      
+      clock_gettime (CLOCK_MONOTONIC, &start);
+      func(&tmp_pic);
+      clock_gettime (CLOCK_MONOTONIC, &end);
 
+      /* Calculate how long it took to blur the image. */
+      u_int64_t diff_ns = BILLION * (end.tv_sec - start.tv_sec) + end.tv_nsec - start.tv_nsec; 
+
+      if (i == 0) {
+        first_time_ns = diff_ns;
+        min_time_ns = diff_ns;
+        max_time_ns = diff_ns;
+      }
+
+      if (i == NUM_TEST_RUNS - 1 && save) {
+        clear_picture(&pic);
+        pic.img = copy_image(tmp_pic.img);
+      }
+
+      avg_time_ns += diff_ns;
+      min_time_ns = diff_ns < min_time_ns ? diff_ns : min_time_ns;
+      max_time_ns = diff_ns > max_time_ns ? diff_ns : max_time_ns;
+
+      clear_picture(&tmp_pic);
+    }
+
+    avg_time_ns /= NUM_TEST_RUNS;
+    
     printf("%s:\n", label);
-    printf("Time Taken: %lu.%09lus\n\n", diff / BILLION, diff % BILLION);
+    PRINT_TIME("Average", avg_time_ns);
+    PRINT_TIME("Minimum", min_time_ns);
+    PRINT_TIME("Maximum", max_time_ns);
+    PRINT_TIME("First", first_time_ns);
+    printf("\n");
 
-    if (!save_picture_to_file(&pic, save_path)) {
+    if (save && !save_picture_to_file(&pic, save_path)) {
       return false;
     }
 
