@@ -36,6 +36,8 @@ static bool test_blur_func(blur_func func, char *pic_path, char *save_path, char
     test_blur_func(&parallel_blur_picture, pic_path, save_path, "Pixel by pixel");
     test_blur_func(&parallel_row_blur_picture, pic_path, save_path, "Row by row");
     test_blur_func(&parallel_column_blur_picture, pic_path, save_path, "Column by column");
+    test_blur_func(&parallel_half_sector_blur_picture, pic_path, save_path, "Half segments");
+    test_blur_func(&parallel_quarter_sector_blur_picture, pic_path, save_path, "Quarter segments");
     
     return EXIT_SUCCESS;
   }

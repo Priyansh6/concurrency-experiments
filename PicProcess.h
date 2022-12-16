@@ -13,6 +13,8 @@
   void parallel_blur_picture(struct picture *pic);
   void parallel_row_blur_picture(struct picture *pic);
   void parallel_column_blur_picture(struct picture *pic);
+  void parallel_half_sector_blur_picture(struct picture *pic);
+  void parallel_quarter_sector_blur_picture(struct picture *pic);
 
 #endif
 

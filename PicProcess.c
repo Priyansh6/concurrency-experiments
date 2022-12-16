@@ -309,7 +309,7 @@
     clear_picture(&tmp);
   }
   
-  struct blur_segment_args {
+  struct blur_sector_args {
     struct picture *pic;
     struct picture *tmp;
     int start_i;
@@ -318,8 +318,23 @@
     int end_j;
   };
 
-  void *thread_blur_segment(void *vargs) {
-    struct blur_segment_args *args = (struct blur_segment_args *) vargs;
+  static void blur_sector_args_init(struct blur_sector_args *args, 
+                                     struct picture *pic,
+                                     struct picture *tmp,
+                                     int start_i,
+                                     int end_i,
+                                     int start_j,
+                                     int end_j) {
+    args->pic = pic;
+    args->tmp = tmp;
+    args->start_i = start_i;
+    args->end_i = end_i;
+    args->start_j = start_j;
+    args->end_j = end_j;
+  }
+
+  void *thread_blur_sector(void *vargs) {
+    struct blur_sector_args *args = (struct blur_sector_args *) vargs;
     struct picture *pic = args->pic;
     struct picture *tmp = args->tmp;
     int start_i = args->start_i;
@@ -327,7 +342,7 @@
     int start_j = args->start_j;
     int end_j = args->end_j;
 
-    for(int i = start_i; i < end_j; i++){
+    for(int i = start_i; i < end_i; i++){
       for(int j = start_j; j < end_j; j++){
         blur_individual_pixel(pic, tmp, i, j);
       }
@@ -338,7 +353,7 @@
   }
 
   /* Uses a thread pool to parallelise blurring half of the picture per thread. */
-  void parallel_half_segment_blur_picture(struct picture *pic){
+  void parallel_half_sector_blur_picture(struct picture *pic){
     // make temporary copy of picture to work from
     struct picture tmp;
     tmp.img = copy_image(pic->img);
@@ -349,23 +364,53 @@
     thread_pool_init(&tpool, THREAD_POOL_DEFAULT_THREADS, pic->width - 2);
 
     /* Prepare and submit job for left side of the image. */
-    struct blur_segment_args *left_args = malloc(sizeof(struct blur_segment_args));
-    left_args->pic = pic;
-    left_args->tmp = &tmp;
-    left_args->start_i = 1;
-    left_args->end_i = (tmp.width - 1) / 2;
-    left_args->start_j = 1;
-    left_args->end_j = tmp.height - 1;
-
-    thread_pool_submit_job(&tpool, &thread_blur_segment, left_args);
+    struct blur_sector_args *left_args = malloc(sizeof(struct blur_sector_args));
+    blur_sector_args_init(left_args, pic, &tmp, 1, (tmp.width - 1) / 2, 1, tmp.height - 1);
+    thread_pool_submit_job(&tpool, &thread_blur_sector, left_args);
 
     /* Prepare and submit job for right side of the image. */
-    struct blur_segment_args *right_args = malloc(sizeof(struct blur_segment_args));
-    *right_args = *left_args;
-    right_args->start_i = (tmp.width - 1) / 2;
-    right_args->end_i = tmp.width - 1;
+    struct blur_sector_args *right_args = malloc(sizeof(struct blur_sector_args));
+    blur_sector_args_init(right_args, pic, &tmp, (tmp.width - 1) / 2, tmp.width - 1, 1, tmp.height - 1);
+    thread_pool_submit_job(&tpool, &thread_blur_sector, right_args);
 
-    thread_pool_submit_job(&tpool, &thread_blur_segment, right_args);
+    thread_pool_run_and_wait(&tpool);
+    thread_pool_destroy(&tpool);
+
+    // temporary picture clean-up
+    clear_picture(&tmp);
+  }
+
+  /* Uses a thread pool to parallelise blurring the four corner 
+     segments of the picture per thread. */
+  void parallel_quarter_sector_blur_picture(struct picture *pic){
+    // make temporary copy of picture to work from
+    struct picture tmp;
+    tmp.img = copy_image(pic->img);
+    tmp.width = pic->width;
+    tmp.height = pic->height; 
+
+    thread_pool_t tpool;
+    thread_pool_init(&tpool, THREAD_POOL_DEFAULT_THREADS, pic->width - 2);
+
+    /* Prepare and submit job for top left side of the image. */
+    struct blur_sector_args *top_left_args = malloc(sizeof(struct blur_sector_args));
+    blur_sector_args_init(top_left_args, pic, &tmp, 1, (tmp.width - 1) / 2, 1, (tmp.height - 1) / 2);
+    thread_pool_submit_job(&tpool, &thread_blur_sector, top_left_args);
+
+    /* Prepare and submit job for bottom left side of the image. */
+    struct blur_sector_args *bottom_left_args = malloc(sizeof(struct blur_sector_args));
+    blur_sector_args_init(bottom_left_args, pic, &tmp, 1, (tmp.width - 1) / 2, (tmp.height - 1) / 2, tmp.height - 1);
+    thread_pool_submit_job(&tpool, &thread_blur_sector, bottom_left_args);
+
+    /* Prepare and submit job for top right side of the image. */
+    struct blur_sector_args *top_right_args = malloc(sizeof(struct blur_sector_args));
+    blur_sector_args_init(top_right_args, pic, &tmp, (tmp.width - 1) / 2, tmp.width - 1, 1, (tmp.height - 1) / 2);
+    thread_pool_submit_job(&tpool, &thread_blur_sector, top_right_args);
+
+    /* Prepare and submit job for bottom right side of the image. */
+    struct blur_sector_args *bottom_right_args = malloc(sizeof(struct blur_sector_args));
+    blur_sector_args_init(bottom_right_args, pic, &tmp, (tmp.width - 1) / 2, tmp.width - 1, (tmp.height - 1) / 2, tmp.height - 1);
+    thread_pool_submit_job(&tpool, &thread_blur_sector, bottom_right_args);
 
     thread_pool_run_and_wait(&tpool);
     thread_pool_destroy(&tpool);
