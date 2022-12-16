@@ -4,7 +4,7 @@
 
   #define NO_RGB_COMPONENTS 3
   #define BLUR_REGION_SIZE 9
-  #define THREAD_POOL_DEFAULT_THREADS 16
+  #define THREAD_POOL_DEFAULT_THREADS 64
 
   static void blur_individual_pixel(struct picture *pic, struct picture *tmp, int i, int j);
 
